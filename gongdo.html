@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>부스 및 푸드트럭 배치 시뮬레이터</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: #0f0f12;
+            color: #e2e8f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .simulator-container {
+            background-color: #16161a;
+            border: 1px solid #2a2a35;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 900px;
+            padding: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.5px;
+        }
+
+        /* 탭(Tab) 스타일 */
+        .tabs {
+            display: flex;
+            gap: 12px;
+            background-color: #1e1e24;
+            padding: 6px;
+            border-radius: 10px;
+            border: 1px solid #333344;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 14px;
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background-color: #3b82f6;
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+        }
+
+        .tab-btn:hover:not(.active) {
+            background-color: #2a2a35;
+            color: #cbd5e1;
+        }
+
+        /* 시각화 영역 */
+        .visualization-box {
+            background-color: #1e1e24;
+            border: 1px solid #333344;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 24px;
+            padding: 10px;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            background-color: #1e1e24;
+            border-radius: 8px;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 12px;
+            padding-left: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        /* 대시보드 스코어보드 */
+        .dashboard-status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid #2a2a35;
+            border-bottom: 1px solid #2a2a35;
+            padding: 16px 0;
+            margin-bottom: 24px;
+        }
+
+        .status-block {
+            text-align: center;
+            flex: 1;
+        }
+
+        .status-block.directional { flex: 1.5; }
+        .status-block:not(:last-child) { border-right: 1px solid #2a2a35; }
+
+        .status-label {
+            font-size: 13px;
+            color: #94a3b8;
+            margin-bottom: 6px;
+        }
+
+        .status-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .status-value.food-truck { color: #fbbf24; }
+        .status-value.kids-rest { color: #f472b6; }
+        .status-value.kids-exp { color: #facc15; }
+        .status-value.kids-air { color: #2dd4bf; }
+
+        /* 방위별 개수 스타일 */
+        .directional-stats {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 4px;
+        }
+
+        .dir-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #1e1e24;
+            padding: 4px 10px;
+            border-radius: 8px;
+            border: 1px solid #333344;
+            min-width: 45px;
+        }
+
+        .dir-label {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-bottom: 2px;
+        }
+
+        .dir-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #818cf8;
+        }
+
+        /* 컨트롤 패널 */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .controls-grid { grid-template-columns: 1fr; }
+            .header { flex-direction: column; gap: 16px; align-items: flex-start; }
+        }
+
+        .control-group {
+            background-color: #1a1a22;
+            border: 1px solid #2a2a35;
+            border-radius: 10px;
+            padding: 16px;
+        }
+        
+        .group-title {
+            font-size: 14px; 
+            font-weight: 600; 
+            color: #cbd5e1; 
+            margin-bottom: 16px; 
+            border-bottom: 1px solid #2a2a35; 
+            padding-bottom: 8px;
+        }
+
+        .input-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .input-row label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #cbd5e1;
+        }
+
+        .value-display {
+            background-color: #262630;
+            border: 1px solid #3f3f50;
+            border-radius: 6px;
+            padding: 4px 12px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #ffffff;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #2d2d3d;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        .slider-ticks {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #64748b;
+            padding: 0 2px;
+        }
+
+        /* 스위치 스타일 */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+        }
+
+        .toggle-row:not(:last-child) { border-bottom: 1px solid #22222f; }
+        .toggle-label { font-size: 14px; color: #cbd5e1; }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #3f3f50;
+            transition: .3s;
+            border-radius: 24px;
+        }
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px; width: 18px;
+            left: 3px; bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider { background-color: #3b82f6; }
+        input.ft-check:checked + .toggle-slider { background-color: #fbbf24; }
+        input.kids-rest-check:checked + .toggle-slider { background-color: #f472b6; }
+        input.kids-exp-check:checked + .toggle-slider { background-color: #facc15; }
+        input.kids-air-check:checked + .toggle-slider { background-color: #2dd4bf; }
+
+        input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+        /* 토글을 위한 유틸 클래스 */
+        .hide { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div class="simulator-container">
+    <div class="header">
+        <h1>축제 구역 배치 시뮬레이터</h1>
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('main')">운동장 메인 부스</button>
+            <button class="tab-btn" onclick="switchTab('kids')">주차장 키즈존 🎈</button>
+        </div>
+    </div>
+
+    <div class="visualization-box">
+        <canvas id="fieldCanvas" width="800" height="420"></canvas>
+        
+        <div class="legend" id="mainLegend">
+            <div class="legend-item"><div class="legend-color" style="background-color: #4f46e5;"></div><span>배치된 부스</span></div>
+            <div class="legend-item"><div class="legend-color" style="background-color: #3b82f6;"></div><span>운동장 경계</span></div>
+            <div class="legend-item"><div class="legend-color" style="background-color: #4b5563;"></div><span>중앙 광장/스탠드</span></div>
+            <div class="legend-item"><div class="legend-color" style="background-color: #d97706;"></div><span>푸드트럭</span></div>
+        </div>
+        
+        <div class="legend hide" id="kidsLegend">
+            <div class="legend-item"><div class="legend-color" style="background-color: #f472b6;"></div><span>가족 휴식 텐트 (6x3m)</span></div>
+            <div class="legend-item"><div class="legend-color" style="background-color: #facc15;"></div><span>어린이 체험존 (6x3m)</span></div>
+            <div class="legend-item"><div class="legend-color" style="background-color: #2dd4bf;"></div><span>에어바운스 (10x10m)</span></div>
+            <div class="legend-item"><div class="legend-color" style="background-color: #64748b;"></div><span>주차장 구역</span></div>
+        </div>
+    </div>
+
+    <div class="dashboard-status" id="mainDashboard">
+        <div class="status-block">
+            <div class="status-label">총 부스 수량</div>
+            <div id="currentCount" class="status-value">0개</div>
+        </div>
+        <div class="status-block directional">
+            <div class="status-label">구역별 부스 개수</div>
+            <div id="directionalCount" class="directional-stats"></div>
+        </div>
+        <div class="status-block">
+            <div class="status-label">푸드트럭 가능 수량</div>
+            <div id="ftCountDisplay" class="status-value food-truck">0대</div>
+        </div>
+    </div>
+
+    <div class="dashboard-status hide" id="kidsDashboard">
+        <div class="status-block">
+            <div class="status-label">휴식 텐트 (좌측)</div>
+            <div id="kidsRestCount" class="status-value kids-rest">0개</div>
+        </div>
+        <div class="status-block">
+            <div class="status-label">체험존 부스 (상단)</div>
+            <div id="kidsExpCount" class="status-value kids-exp">0개</div>
+        </div>
+        <div class="status-block">
+            <div class="status-label">에어바운스 (우측)</div>
+            <div id="kidsAirCount" class="status-value kids-air">0대</div>
+        </div>
+    </div>
+
+    <div class="controls-grid" id="mainControls">
+        <div class="control-group">
+            <div class="group-title">부스 규격 설정</div>
+            <div class="slider-container" style="margin-bottom: 16px;">
+                <div class="input-row">
+                    <label for="tentWidth">텐트 전면 (m)</label>
+                    <div id="tentWidthVal" class="value-display">6</div>
+                </div>
+                <input type="range" id="tentWidth" min="2" max="10" step="0.5" value="6">
+                <div class="slider-ticks"><span>2</span><span>4</span><span>6</span><span>8</span><span>10</span></div>
+            </div>
+            <div class="slider-container" style="margin-bottom: 16px;">
+                <div class="input-row">
+                    <label for="tentDepth">텐트 깊이 (m)</label>
+                    <div id="tentDepthVal" class="value-display">3</div>
+                </div>
+                <input type="range" id="tentDepth" min="2" max="6" step="0.5" value="3">
+                <div class="slider-ticks"><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span></div>
+            </div>
+        </div>
+        <div class="control-group">
+            <div class="group-title">부스 구역 활성화</div>
+            <div class="toggle-row"><span class="toggle-label">북측 배치 (80.0m)</span><label class="switch"><input type="checkbox" id="northToggle" checked><span class="toggle-slider"></span></label></div>
+            <div class="toggle-row"><span class="toggle-label">동측 배치 (66.2m)</span><label class="switch"><input type="checkbox" id="eastToggle"><span class="toggle-slider"></span></label></div>
+            <div class="toggle-row"><span class="toggle-label">남측 배치 (79.5m)</span><label class="switch"><input type="checkbox" id="southToggle" checked><span class="toggle-slider"></span></label></div>
+            <div class="toggle-row"><span class="toggle-label">서측 배치 (58.6m)</span><label class="switch"><input type="checkbox" id="westToggle" checked><span class="toggle-slider"></span></label></div>
+            <div class="toggle-row"><span class="toggle-label">남측 복열 (두 줄)</span><label class="switch"><input type="checkbox" id="southDoubleToggle" checked><span class="toggle-slider"></span></label></div>
+        </div>
+        <div class="control-group">
+            <div class="group-title">푸드트럭 (중앙 광장)</div>
+            <div class="toggle-row" style="margin-bottom: 8px;"><span class="toggle-label">푸드트럭 구역 사용</span><label class="switch"><input type="checkbox" class="ft-check" id="ftToggle" checked><span class="toggle-slider"></span></label></div>
+            <div class="slider-container" style="margin-bottom: 16px;">
+                <div class="input-row"><label for="ftLength">트럭 세로 길이 (m)</label><div id="ftLengthVal" class="value-display">5</div></div>
+                <input type="range" id="ftLength" min="3" max="10" step="0.5" value="5">
+                <div class="slider-ticks"><span>3</span><span>5</span><span>7</span><span>10</span></div>
+            </div>
+            <div class="slider-container">
+                <div class="input-row"><label for="ftGap">트럭 간격 (m)</label><div id="ftGapVal" class="value-display">1</div></div>
+                <input type="range" id="ftGap" min="0" max="5" step="0.5" value="1">
+                <div class="slider-ticks"><span>0</span><span>1</span><span>2</span><span>3</span><span>5</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls-grid hide" id="kidsControls">
+        <div class="control-group">
+            <div class="group-title">키즈존 구역 활성화</div>
+            <div class="toggle-row">
+                <span class="toggle-label">좌측: 휴식 텐트 (37.8m)</span>
+                <label class="switch"><input type="checkbox" class="kids-rest-check" id="krToggle" checked><span class="toggle-slider"></span></label>
+            </div>
+            <div class="toggle-row">
+                <span class="toggle-label">상단: 체험존 부스 (29.4m)</span>
+                <label class="switch"><input type="checkbox" class="kids-exp-check" id="keToggle" checked><span class="toggle-slider"></span></label>
+            </div>
+            <div class="toggle-row">
+                <span class="toggle-label">우측: 에어바운스 (40.1m)</span>
+                <label class="switch"><input type="checkbox" class="kids-air-check" id="kaToggle" checked><span class="toggle-slider"></span></label>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <div class="group-title">배치 목표 수량</div>
+            <div class="slider-container" style="margin-bottom: 16px;">
+                <div class="input-row">
+                    <label for="krCount">휴식 텐트 (개)</label>
+                    <div id="krCountVal" class="value-display">5</div>
+                </div>
+                <input type="range" id="krCount" min="1" max="10" step="1" value="5">
+            </div>
+            <div class="slider-container" style="margin-bottom: 16px;">
+                <div class="input-row">
+                    <label for="keCount">체험존 부스 (개)</label>
+                    <div id="keCountVal" class="value-display">4</div>
+                </div>
+                <input type="range" id="keCount" min="1" max="10" step="1" value="4">
+            </div>
+            <div class="slider-container">
+                <div class="input-row">
+                    <label for="kaCount">에어바운스 (대)</label>
+                    <div id="kaCountVal" class="value-display">3</div>
+                </div>
+                <input type="range" id="kaCount" min="1" max="10" step="1" value="3">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <div class="group-title">시설물 배치 간격 (안전 거리)</div>
+            <p style="font-size: 11px; color: #94a3b8; margin-bottom: 16px; line-height: 1.4;">
+                ※ 개수와 간격을 늘려 실제 공간 길이를 초과하게 되면, 캔버스 안의 <strong>물리적 한계까지만 안전하게 표시</strong>됩니다.
+            </p>
+            <div class="slider-container">
+                <div class="input-row">
+                    <label for="kidsGap">설치 간격 (m)</label>
+                    <div id="kidsGapVal" class="value-display">1</div>
+                </div>
+                <input type="range" id="kidsGap" min="0" max="3" step="0.5" value="1">
+                <div class="slider-ticks">
+                    <span>0m</span><span>1m</span><span>2m</span><span>3m</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 캔버스 및 탭 관리 ---
+    const canvas = document.getElementById('fieldCanvas');
+    const ctx = canvas.getContext('2d');
+    let currentTab = 'main'; 
+
+    function switchTab(tab) {
+        currentTab = tab;
+        document.querySelectorAll('.tab-btn').forEach((btn, idx) => {
+            if(tab === 'main' && idx === 0) btn.classList.add('active');
+            else if(tab === 'kids' && idx === 1) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+
+        document.getElementById('mainLegend').classList.toggle('hide', tab !== 'main');
+        document.getElementById('kidsLegend').classList.toggle('hide', tab !== 'kids');
+        document.getElementById('mainDashboard').classList.toggle('hide', tab !== 'main');
+        document.getElementById('kidsDashboard').classList.toggle('hide', tab !== 'kids');
+        document.getElementById('mainControls').classList.toggle('hide', tab !== 'main');
+        document.getElementById('kidsControls').classList.toggle('hide', tab !== 'kids');
+
+        calculateAndDraw();
+    }
+
+    // --- 운동장 메인 변수 ---
+    const tentWidthInput = document.getElementById('tentWidth');
+    const tentDepthInput = document.getElementById('tentDepth');
+    const northToggle = document.getElementById('northToggle');
+    const eastToggle = document.getElementById('eastToggle');
+    const southToggle = document.getElementById('southToggle');
+    const westToggle = document.getElementById('westToggle');
+    const southDoubleToggle = document.getElementById('southDoubleToggle');
+    const ftToggle = document.getElementById('ftToggle');
+    const ftLengthInput = document.getElementById('ftLength');
+    const ftGapInput = document.getElementById('ftGap');
+
+    const lengths = { north: 80.0, east: 66.2, south: 79.5, west: 58.6, plazaWidth: 15.0 };
+    const coords = { nw: { x: 170, y: 70 }, ne: { x: 630, y: 70 }, se: { x: 625, y: 350 }, sw: { x: 170, y: 310 } };
+    const plazaCoords = { x: 40, y: 70, w: 90, h: 240 };
+
+    // --- 키즈존(주차장) 변수 ---
+    const krToggle = document.getElementById('krToggle');
+    const keToggle = document.getElementById('keToggle');
+    const kaToggle = document.getElementById('kaToggle');
+    
+    // 새로 추가된 개수 조절 인풋
+    const krCountInput = document.getElementById('krCount');
+    const keCountInput = document.getElementById('keCount');
+    const kaCountInput = document.getElementById('kaCount');
+    
+    const kidsGapInput = document.getElementById('kidsGap');
+    
+    const kidsLengths = { left: 37.8, top: 29.4, right: 40.1 };
+    const kScale = 6;
+    const kCoords = {
+        tl: { x: 310, y: 90 },
+        tr: { x: 310 + (kidsLengths.top * kScale), y: 90 }, 
+        bl: { x: 310, y: 90 + (kidsLengths.left * kScale) }, 
+        br: { x: 310 + (kidsLengths.top * kScale), y: 90 + (kidsLengths.right * kScale) } 
+    };
+
+    function roundRect(ctx, x, y, width, height, radius) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+    }
+
+    function calculateAndDraw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#1e1e24';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (currentTab === 'main') drawMainField();
+        else drawKidsZone();
+    }
+
+    // --- [모드 1] 운동장 메인 렌더링 (변경 없음) ---
+    function drawMainField() {
+        const w = parseFloat(tentWidthInput.value);
+        const d = parseFloat(tentDepthInput.value);
+        const ftLen = parseFloat(ftLengthInput.value);
+        const ftGap = parseFloat(ftGapInput.value);
+
+        document.getElementById('tentWidthVal').textContent = w;
+        document.getElementById('tentDepthVal').textContent = d;
+        document.getElementById('ftLengthVal').textContent = ftLen;
+        document.getElementById('ftGapVal').textContent = ftGap;
+
+        let northCount = northToggle.checked ? Math.floor(lengths.north / w) : 0;
+        let eastCount = eastToggle.checked ? Math.floor(lengths.east / w) : 0;
+        let westCount = westToggle.checked ? Math.floor(lengths.west / w) : 0;
+        let southCount = 0;
+        if (southToggle.checked) {
+            southCount = Math.floor(lengths.south / w);
+            if (southDoubleToggle.checked) southCount *= 2;
+        }
+
+        const totalTents = northCount + eastCount + westCount + southCount;
+        document.getElementById('currentCount').textContent = totalTents + "개";
+        
+        document.getElementById('directionalCount').innerHTML = `
+            <div class="dir-item"><span class="dir-label">북측</span><span class="dir-value">${northCount}</span></div>
+            <div class="dir-item"><span class="dir-label">동측</span><span class="dir-value">${eastCount}</span></div>
+            <div class="dir-item"><span class="dir-label">남측</span><span class="dir-value">${southCount}</span></div>
+            <div class="dir-item"><span class="dir-label">서측</span><span class="dir-value">${westCount}</span></div>
+        `;
+
+        let totalFt = 0;
+        if (ftToggle.checked) totalFt = Math.floor((lengths.west + ftGap) / (ftLen + ftGap));
+        document.getElementById('ftCountDisplay').textContent = totalFt + "대";
+
+        ctx.beginPath();
+        ctx.moveTo(coords.nw.x, coords.nw.y); ctx.lineTo(coords.ne.x, coords.ne.y);
+        ctx.lineTo(coords.se.x, coords.se.y); ctx.lineTo(coords.sw.x, coords.sw.y);
+        ctx.closePath();
+        ctx.fillStyle = '#223226'; ctx.fill();
+        ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2; ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 2; ctx.strokeRect(230, 110, 340, 160);
+        ctx.beginPath(); ctx.moveTo(400, 110); ctx.lineTo(400, 270); ctx.stroke();
+        ctx.beginPath(); ctx.arc(400, 190, 40, 0, Math.PI * 2); ctx.stroke();
+
+        ctx.fillStyle = '#33333d';
+        ctx.fillRect(plazaCoords.x, plazaCoords.y, plazaCoords.w, plazaCoords.h);
+
+        ctx.fillStyle = '#94a3b8'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(`북측 ${lengths.north}m`, (coords.nw.x + coords.ne.x)/2, coords.nw.y - 15);
+        ctx.fillText(`남측 ${lengths.south}m`, (coords.sw.x + coords.se.x)/2, coords.sw.y + 35);
+        
+        ctx.save(); ctx.translate(coords.nw.x - 15, (coords.nw.y + coords.sw.y)/2); ctx.rotate(-Math.PI/2); ctx.fillText(`서측 ${lengths.west}m`, 0, 0); ctx.restore();
+        ctx.save(); ctx.translate(coords.ne.x + 20, (coords.ne.y + coords.se.y)/2); ctx.rotate(Math.PI/2); ctx.fillText(`동측 ${lengths.east}m`, 0, 0); ctx.restore();
+        
+        if (ftToggle.checked && totalFt > 0) {
+            const ftPxPerMeter = plazaCoords.h / lengths.west; 
+            const truckW_px = 3 * ftPxPerMeter; 
+            const truckH_px = ftLen * ftPxPerMeter;
+            const gap_px = ftGap * ftPxPerMeter;
+            const startX = plazaCoords.x + (plazaCoords.w / 2) - (truckW_px / 2);
+            const totalH = (totalFt * truckH_px) + ((totalFt - 1) * gap_px);
+            const startY = plazaCoords.y + (plazaCoords.h - totalH) / 2;
+
+            ctx.fillStyle = '#d97706'; ctx.strokeStyle = '#fcd34d'; ctx.lineWidth = 1;
+            for (let i = 0; i < totalFt; i++) {
+                const ty = startY + i * (truckH_px + gap_px);
+                ctx.fillRect(startX, ty, truckW_px, truckH_px); ctx.strokeRect(startX, ty, truckW_px, truckH_px);
+                ctx.beginPath(); ctx.moveTo(startX, ty + truckH_px * 0.25); ctx.lineTo(startX + truckW_px, ty + truckH_px * 0.25); ctx.stroke();
+            }
+        }
+
+        function drawTents(p1, p2, count, side, isDouble = false) {
+            if (count === 0) return;
+            const totalCount = isDouble ? count / 2 : count;
+            const dx = p2.x - p1.x; const dy = p2.y - p1.y;
+            const segLen = Math.sqrt(dx*dx + dy*dy);
+            const pxPerMeter = segLen / lengths[side];
+            const tentW_px = w * pxPerMeter; const tentD_px = d * pxPerMeter;
+            const angle = Math.atan2(dy, dx);
+
+            for (let row = 0; row < (isDouble ? 2 : 1); row++) {
+                for (let i = 0; i < totalCount; i++) {
+                    const progress = (i * tentW_px);
+                    if (progress + tentW_px > segLen) break;
+                    const tx = p1.x + Math.cos(angle) * (progress + tentW_px/2);
+                    const ty = p1.y + Math.sin(angle) * (progress + tentW_px/2);
+
+                    ctx.save(); ctx.translate(tx, ty); ctx.rotate(angle);
+                    let offsetSign = (side === 'north' || side === 'west') ? 1 : -1;
+                    let rowOffset = row * (tentD_px + 2) * offsetSign;
+
+                    ctx.fillStyle = '#4f46e5'; ctx.strokeStyle = '#818cf8'; ctx.lineWidth = 1;
+                    const drawX = -tentW_px/2 + 1; const drawY = (offsetSign === 1 ? 2 : -tentD_px - 2) + rowOffset;
+                    
+                    ctx.fillRect(drawX, drawY, tentW_px - 2, tentD_px); ctx.strokeRect(drawX, drawY, tentW_px - 2, tentD_px);
+                    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                    ctx.beginPath(); ctx.moveTo(drawX, drawY); ctx.lineTo(drawX + tentW_px - 2, drawY + tentD_px);
+                    ctx.moveTo(drawX + tentW_px - 2, drawY); ctx.lineTo(drawX, drawY + tentD_px); ctx.stroke();
+                    ctx.restore();
+                }
+            }
+        }
+
+        if (northToggle.checked) drawTents(coords.nw, coords.ne, northCount, 'north');
+        if (eastToggle.checked) drawTents(coords.ne, coords.se, eastCount, 'east');
+        if (southToggle.checked) drawTents(coords.sw, coords.se, southCount, 'south', southDoubleToggle.checked);
+        if (westToggle.checked) drawTents(coords.nw, coords.sw, westCount, 'west');
+    }
+
+    // --- [모드 2] 키즈존(주차장) 렌더링 (수정된 로직 적용) ---
+    function drawKidsZone() {
+        const gap = parseFloat(kidsGapInput.value);
+        const targetRest = parseInt(krCountInput.value);
+        const targetExp = parseInt(keCountInput.value);
+        const targetAir = parseInt(kaCountInput.value);
+
+        // UI 텍스트 업데이트
+        document.getElementById('kidsGapVal').textContent = gap;
+        document.getElementById('krCountVal').textContent = targetRest;
+        document.getElementById('keCountVal').textContent = targetExp;
+        document.getElementById('kaCountVal').textContent = targetAir;
+
+        // 주차장 바닥 그리기
+        ctx.beginPath();
+        ctx.moveTo(kCoords.tl.x, kCoords.tl.y);
+        ctx.lineTo(kCoords.tr.x, kCoords.tr.y);
+        ctx.lineTo(kCoords.br.x, kCoords.br.y);
+        ctx.lineTo(kCoords.bl.x, kCoords.bl.y);
+        ctx.closePath();
+        ctx.fillStyle = '#2a2a35';
+        ctx.fill();
+        ctx.strokeStyle = '#4b5563';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.lineWidth = 2;
+        for(let i=1; i<5; i++) {
+            ctx.beginPath();
+            ctx.moveTo(kCoords.tl.x + 30, kCoords.tl.y + (i * 40));
+            ctx.lineTo(kCoords.tr.x - 30, kCoords.tl.y + (i * 40));
+            ctx.stroke();
+        }
+
+        ctx.fillStyle = '#94a3b8'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(`체험존 구역 ${kidsLengths.top}m`, (kCoords.tl.x + kCoords.tr.x)/2, kCoords.tl.y - 15);
+        ctx.save(); ctx.translate(kCoords.tl.x - 20, (kCoords.tl.y + kCoords.bl.y)/2); ctx.rotate(-Math.PI/2); ctx.fillText(`휴식 텐트 구역 ${kidsLengths.left}m`, 0, 0); ctx.restore();
+        ctx.save(); ctx.translate(kCoords.tr.x + 20, (kCoords.tr.y + kCoords.br.y)/2); ctx.rotate(Math.PI/2); ctx.fillText(`에어바운스 구역 ${kidsLengths.right}m`, 0, 0); ctx.restore();
+
+        // 아이템 그리기 공통 함수
+        function drawKidsItems(p1, p2, targetCount, type) {
+            if (targetCount === 0) return 0;
+            
+            let actualCount = 0;
+            const dx = p2.x - p1.x; const dy = p2.y - p1.y;
+            const angle = Math.atan2(dy, dx);
+            const segLen = Math.sqrt(dx*dx + dy*dy);
+            
+            const itemLen_m = (type === 'air') ? 10 : 6;
+            const itemDepth_m = (type === 'air') ? 10 : 3;
+            const step_px = (itemLen_m + gap) * kScale;
+            
+            const w_px = itemLen_m * kScale;
+            const h_px = itemDepth_m * kScale;
+
+            for (let i = 0; i < targetCount; i++) {
+                const progress = i * step_px;
+                // 물리적 길이를 초과하면 그리기 중단 (안전 장치)
+                if (progress + w_px > segLen + 0.1) break; 
+                
+                const tx = p1.x + Math.cos(angle) * (progress + w_px/2);
+                const ty = p1.y + Math.sin(angle) * (progress + w_px/2);
+                
+                ctx.save();
+                ctx.translate(tx, ty);
+                ctx.rotate(angle);
+
+                let drawX = -w_px/2;
+                let drawY = 0; 
+                
+                // [수정 포인트] 축 회전에 따른 정확한 안쪽 방향 설정
+                if (type === 'rest') {
+                    // 좌측 선: angle 90도. Y축이 왼쪽을 향하므로 안쪽(오른쪽)은 마이너스(-)
+                    drawY = -h_px - 2; 
+                    
+                    roundRect(ctx, drawX, drawY, w_px, h_px, 4);
+                    ctx.clip(); 
+                    ctx.fillStyle = '#fdf2f8'; 
+                    ctx.fillRect(drawX, drawY, w_px, h_px);
+                    ctx.fillStyle = '#f472b6'; 
+                    for(let s=0; s<w_px; s+=8) ctx.fillRect(drawX + s, drawY, 4, h_px);
+                    roundRect(ctx, drawX, drawY, w_px, h_px, 4);
+                    ctx.strokeStyle = '#db2777';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+
+                } else if (type === 'exp') {
+                    // 상단 선: angle 0도. Y축이 아래를 향하므로 안쪽(아래)은 플러스(+)
+                    drawY = 2; 
+                    
+                    roundRect(ctx, drawX, drawY, w_px, h_px, 4);
+                    ctx.fillStyle = '#fef08a';
+                    ctx.fill();
+                    ctx.strokeStyle = '#eab308';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                    ctx.fillStyle = '#ca8a04';
+                    ctx.font = '14px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('⭐', drawX + w_px/2, drawY + h_px/2 + 1);
+
+                } else if (type === 'air') {
+                    // 우측 선: angle 90도. Y축이 왼쪽을 향하므로 안쪽(왼쪽)은 플러스(+)
+                    drawY = 2; 
+                    
+                    roundRect(ctx, drawX, drawY, w_px, h_px, 6);
+                    ctx.fillStyle = '#a7f3d0';
+                    ctx.fill();
+                    ctx.strokeStyle = '#10b981';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#6ee7b7';
+                    roundRect(ctx, drawX + w_px*0.2, drawY + h_px*0.2, w_px*0.6, h_px*0.6, 8);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#34d399';
+                    const corners = [
+                        {x: drawX, y: drawY}, {x: drawX + w_px, y: drawY},
+                        {x: drawX, y: drawY + h_px}, {x: drawX + w_px, y: drawY + h_px}
+                    ];
+                    corners.forEach(c => {
+                        ctx.beginPath();
+                        ctx.arc(c.x, c.y, 6, 0, Math.PI * 2);
+                        ctx.fill(); ctx.stroke();
+                    });
+                }
+                
+                ctx.restore();
+                actualCount++; // 정상적으로 그려진 개수 누적
+            }
+            return actualCount;
+        }
+
+        // 아이템 그리고 실제 배치된 수량 확인
+        let actualRest = 0, actualExp = 0, actualAir = 0;
+        
+        if (krToggle.checked) actualRest = drawKidsItems(kCoords.tl, kCoords.bl, targetRest, 'rest');
+        if (keToggle.checked) actualExp = drawKidsItems(kCoords.tl, kCoords.tr, targetExp, 'exp');
+        if (kaToggle.checked) actualAir = drawKidsItems(kCoords.tr, kCoords.br, targetAir, 'air');
+
+        // 대시보드에는 '실제로 캔버스에 들어간 수량' 업데이트
+        document.getElementById('kidsRestCount').textContent = actualRest + "개";
+        document.getElementById('kidsExpCount').textContent = actualExp + "개";
+        document.getElementById('kidsAirCount').textContent = actualAir + "대";
+    }
+
+    // --- 이벤트 리스너 등록 ---
+    const allElements = [
+        tentWidthInput, tentDepthInput, northToggle, eastToggle, southToggle, westToggle, southDoubleToggle,
+        ftToggle, ftLengthInput, ftGapInput,
+        krToggle, keToggle, kaToggle, krCountInput, keCountInput, kaCountInput, kidsGapInput
+    ];
+    
+    allElements.forEach(el => {
+        el.addEventListener('input', calculateAndDraw);
+        el.addEventListener('change', calculateAndDraw);
+    });
+
+    southToggle.addEventListener('change', function() {
+        southDoubleToggle.disabled = !this.checked;
+        if(!this.checked) southDoubleToggle.checked = false;
+    });
+
+    // 초기 실행
+    calculateAndDraw();
+</script>
+
+</body>
+</html>
