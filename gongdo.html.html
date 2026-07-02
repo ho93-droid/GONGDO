@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>부스 및 푸드트럭 배치 시뮬레이터 v3</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: #0f0f12;
+            color: #e2e8f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .simulator-container {
+            background-color: #16161a;
+            border: 1px solid #2a2a35;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 900px;
+            padding: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+
+        .header {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.5px;
+        }
+        
+        .header .subtitle {
+            font-size: 14px;
+            color: #94a3b8;
+        }
+
+        /* 시각화 영역 */
+        .visualization-box {
+            background-color: #1e1e24;
+            border: 1px solid #333344;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 24px;
+            padding: 10px;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            background-color: #1e1e24;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 8px;
+            padding-left: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+        }
+
+        /* 대시보드 스코어보드 */
+        .dashboard-status {
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid #2a2a35;
+            border-bottom: 1px solid #2a2a35;
+            padding: 16px 0;
+            margin-bottom: 24px;
+        }
+
+        .status-block {
+            text-align: center;
+            flex: 1;
+        }
+
+        .status-block:not(:last-child) {
+            border-right: 1px solid #2a2a35;
+        }
+
+        .status-label {
+            font-size: 13px;
+            color: #94a3b8;
+            margin-bottom: 6px;
+        }
+
+        .status-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .status-value.shortage {
+            color: #ff4a4a;
+        }
+
+        .status-value.success {
+            color: #34c759;
+        }
+        
+        .status-value.food-truck {
+            color: #fbbf24;
+        }
+
+        /* 컨트롤 패널 */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .controls-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .control-group {
+            background-color: #1a1a22;
+            border: 1px solid #2a2a35;
+            border-radius: 10px;
+            padding: 16px;
+        }
+        
+        .group-title {
+            font-size: 14px; 
+            font-weight: 600; 
+            color: #cbd5e1; 
+            margin-bottom: 16px; 
+            border-bottom: 1px solid #2a2a35; 
+            padding-bottom: 8px;
+        }
+
+        .input-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .input-row label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #cbd5e1;
+        }
+
+        .value-display {
+            background-color: #262630;
+            border: 1px solid #3f3f50;
+            border-radius: 6px;
+            padding: 4px 12px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #ffffff;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #2d2d3d;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        .slider-ticks {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #64748b;
+            padding: 0 2px;
+        }
+
+        /* 스위치 스타일 */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+        }
+
+        .toggle-row:not(:last-child) {
+            border-bottom: 1px solid #22222f;
+        }
+
+        .toggle-label {
+            font-size: 14px;
+            color: #cbd5e1;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #3f3f50;
+            transition: .3s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: #34c759;
+        }
+        
+        input.ft-check:checked + .toggle-slider {
+            background-color: #fbbf24;
+        }
+        
+        input.ab-check:checked + .toggle-slider {
+            background-color: #ec4899;
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+
+        /* 알림 배너 */
+        .alert-banner {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background-color: rgba(255, 74, 74, 0.15);
+            border: 1px solid #ff4a4a;
+            color: #ff6b6b;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            backdrop-filter: blur(4px);
+        }
+
+        .alert-banner.success {
+            background-color: rgba(52, 199, 89, 0.15);
+            border: 1px solid #34c759;
+            color: #52d974;
+        }
+    </style>
+</head>
+<body>
+
+<div class="simulator-container">
+    <div class="header">
+        <div>
+            <h1>부스 배치 최적화 시뮬레이터</h1>
+        </div>
+        <div class="subtitle">v3. 특별 시설 추가됨</div>
+    </div>
+
+    <!-- 시각화 영역 -->
+    <div class="visualization-box">
+        <div id="alertBanner" class="alert-banner">경고: 부스 공간 부족</div>
+        <canvas id="fieldCanvas" width="800" height="420"></canvas>
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #4f46e5;"></div>
+                <span>배치된 부스</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #3b82f6;"></div>
+                <span>운동장 경계</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #4b5563;"></div>
+                <span>중앙 광장 / 스탠드</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #d97706;"></div>
+                <span>푸드트럭</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #ec4899;"></div>
+                <span>에어바운스</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #10b981;"></div>
+                <span>지정석 부스</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 대시보드 상태창 -->
+    <div class="dashboard-status">
+        <div class="status-block">
+            <div class="status-label">현재 총 부스 수량</div>
+            <div id="currentCount" class="status-value">0개</div>
+        </div>
+        <div class="status-block">
+            <div class="status-label">부스 목표 차이</div>
+            <div id="targetDiff" class="status-value">0개</div>
+        </div>
+        <div class="status-block">
+            <div class="status-label">푸드트럭 가능 수량</div>
+            <div id="ftCountDisplay" class="status-value food-truck">0대</div>
+        </div>
+    </div>
+
+    <!-- 컨트롤 패널 -->
+    <div class="controls-grid">
+        <!-- 부스 수치 조절 블록 -->
+        <div class="control-group">
+            <div class="group-title">기본 부스 규격 설정</div>
+            <div class="slider-container" style="margin-bottom: 16px;">
+                <div class="input-row">
+                    <label for="tentWidth">텐트 전면 (m)</label>
+                    <div id="tentWidthVal" class="value-display">6</div>
+                </div>
+                <input type="range" id="tentWidth" min="2" max="10" step="0.5" value="6">
+                <div class="slider-ticks">
+                    <span>2</span><span>4</span><span>6</span><span>8</span><span>10</span>
+                </div>
+            </div>
+
+            <div class="slider-container" style="margin-bottom: 16px;">
+                <div class="input-row">
+                    <label for="tentDepth">텐트 깊이 (m)</label>
+                    <div id="tentDepthVal" class="value-display">3</div>
+                </div>
+                <input type="range" id="tentDepth" min="2" max="6" step="0.5" value="3">
+                <div class="slider-ticks">
+                    <span>2</span><span>3</span><span>4</span><span>5</span><span>6</span>
+                </div>
+            </div>
+
+            <div class="slider-container">
+                <div class="input-row">
+                    <label for="targetCount">목표 수량 (개)</label>
+                    <div id="targetCountVal" class="value-display">60</div>
+                </div>
+                <input type="range" id="targetCount" min="10" max="100" step="5" value="60">
+                <div class="slider-ticks">
+                    <span>10</span><span>30</span><span>50</span><span>70</span><span>100</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 부스 배치 위치 토글 블록 -->
+        <div class="control-group">
+            <div class="group-title">일반 부스 구역 활성화</div>
+            <div class="toggle-row">
+                <span class="toggle-label">북측 배치 (80.0m)</span>
+                <label class="switch">
+                    <input type="checkbox" id="northToggle" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="toggle-row">
+                <span class="toggle-label">동측 배치 (66.2m)</span>
+                <label class="switch">
+                    <input type="checkbox" id="eastToggle">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="toggle-row">
+                <span class="toggle-label">남측 배치 (79.5m)</span>
+                <label class="switch">
+                    <input type="checkbox" id="southToggle" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="toggle-row">
+                <span class="toggle-label">서측 배치 (58.6m)</span>
+                <label class="switch">
+                    <input type="checkbox" id="westToggle" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="toggle-row">
+                <span class="toggle-label">남측 복열 (두 줄)</span>
+                <label class="switch">
+                    <input type="checkbox" id="southDoubleToggle" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+        
+        <!-- 특별 구역 설정 블록 -->
+        <div class="control-group">
+            <div class="group-title">특별 구역 설정</div>
+            
+            <div class="toggle-row">
+                <span class="toggle-label">북측 앞줄 텐트 4개</span>
+                <label class="switch">
+                    <input type="checkbox" class="ft-check" id="northFrontToggle" checked>
+                    <span class="toggle-slider" style="background-color: #10b981;"></span>
+                </label>
+            </div>
+            
+            <div class="toggle-row">
+                <span class="toggle-label">남측 좌측 텐트 3개</span>
+                <label class="switch">
+                    <input type="checkbox" class="ft-check" id="southLeftToggle" checked>
+                    <span class="toggle-slider" style="background-color: #10b981;"></span>
+                </label>
+            </div>
+            
+            <div class="toggle-row" style="margin-bottom: 12px;">
+                <span class="toggle-label">5시 방향 에어바운스</span>
+                <label class="switch">
+                    <input type="checkbox" class="ab-check" id="airbounceToggle" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            
+            <div class="toggle-row" style="margin-top: 10px; border-top: 1px solid #2a2a35; padding-top: 12px;">
+                <span class="toggle-label">광장 푸드트럭 구역</span>
+                <label class="switch">
+                    <input type="checkbox" class="ft-check" id="ftToggle" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            
+            <div class="slider-container" style="margin-top: 10px;">
+                <div class="input-row">
+                    <label for="ftLength">푸드트럭 세로 길이</label>
+                    <div id="ftLengthVal" class="value-display">5</div>
+                </div>
+                <input type="range" id="ftLength" min="3" max="10" step="0.5" value="5">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('fieldCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // 부스 입력 요소 정의
+    const tentWidthInput = document.getElementById('tentWidth');
+    const tentDepthInput = document.getElementById('tentDepth');
+    const targetCountInput = document.getElementById('targetCount');
+    
+    const northToggle = document.getElementById('northToggle');
+    const eastToggle = document.getElementById('eastToggle');
+    const southToggle = document.getElementById('southToggle');
+    const westToggle = document.getElementById('westToggle');
+    const southDoubleToggle = document.getElementById('southDoubleToggle');
+    
+    // 푸드트럭 & 특별 구역 입력 요소 정의
+    const ftToggle = document.getElementById('ftToggle');
+    const ftLengthInput = document.getElementById('ftLength');
+    
+    const northFrontToggle = document.getElementById('northFrontToggle');
+    const southLeftToggle = document.getElementById('southLeftToggle');
+    const airbounceToggle = document.getElementById('airbounceToggle');
+
+    // 수치 표시 요소 정의
+    const tentWidthVal = document.getElementById('tentWidthVal');
+    const tentDepthVal = document.getElementById('tentDepthVal');
+    const targetCountVal = document.getElementById('targetCountVal');
+    const ftLengthVal = document.getElementById('ftLengthVal');
+    
+    const currentCountEl = document.getElementById('currentCount');
+    const targetDiffEl = document.getElementById('targetDiff');
+    const ftCountDisplay = document.getElementById('ftCountDisplay');
+    const alertBanner = document.getElementById('alertBanner');
+
+    // 운동장 실제 치수 (미터)
+    const lengths = {
+        north: 80.0,
+        east: 66.2,
+        south: 79.5,
+        west: 58.6,
+        plazaWidth: 15.0 
+    };
+
+    // 캔버스 상의 좌표 맵핑
+    const coords = {
+        nw: { x: 170, y: 70 },
+        ne: { x: 630, y: 70 },
+        se: { x: 625, y: 350 },
+        sw: { x: 170, y: 310 }
+    };
+
+    // 중앙 광장 캔버스 영역
+    const plazaCoords = {
+        x: 40,
+        y: 70,
+        w: 90,
+        h: 240
+    };
+
+    function calculateAndDraw() {
+        const w = parseFloat(tentWidthInput.value);
+        const d = parseFloat(tentDepthInput.value);
+        const target = parseInt(targetCountInput.value);
+        
+        const ftLen = parseFloat(ftLengthInput.value);
+        const ftGap = 1; // 푸드트럭 간격 고정 1m
+
+        // 값 UI 업데이트
+        tentWidthVal.textContent = w;
+        tentDepthVal.textContent = d;
+        targetCountVal.textContent = target;
+        ftLengthVal.textContent = ftLen;
+
+        // --- 부스 개수 계산 ---
+        let northCount = northToggle.checked ? Math.floor(lengths.north / w) : 0;
+        let eastCount = eastToggle.checked ? Math.floor(lengths.east / w) : 0;
+        let westCount = westToggle.checked ? Math.floor(lengths.west / w) : 0;
+        
+        // 동측에 에어바운스가 있으면 부스 수량 감소 (약 15m 공간 차지 가정)
+        if (eastToggle.checked && airbounceToggle.checked) {
+            eastCount = Math.floor((lengths.east - 15) / w);
+        }
+        
+        // 남측에 에어바운스가 있으면 부스 수량 감소 (우측 끝에 위치하므로 남측도 영향)
+        let southCount = 0;
+        let southLengthAvailable = lengths.south;
+        if (airbounceToggle.checked) {
+             southLengthAvailable -= 15;
+        }
+        
+        if (southToggle.checked) {
+            southCount = Math.floor(southLengthAvailable / w);
+            if (southDoubleToggle.checked) {
+                southCount *= 2;
+            }
+        }
+        
+        // 특별 구역 부스 추가
+        let specialBoothCount = 0;
+        if (northFrontToggle.checked) specialBoothCount += 4;
+        if (southLeftToggle.checked) specialBoothCount += 3;
+
+        const totalTents = northCount + eastCount + westCount + southCount + specialBoothCount;
+        currentCountEl.textContent = totalTents + "개";
+
+        const diff = totalTents - target;
+        if (diff >= 0) {
+            targetDiffEl.textContent = diff === 0 ? "목표 달성" : `${diff}개 초과 달성`;
+            targetDiffEl.className = "status-value success";
+            alertBanner.textContent = "부스 목표 달성 완료!";
+            alertBanner.className = "alert-banner success";
+        } else {
+            targetDiffEl.textContent = `${Math.abs(diff)}개 부족`;
+            targetDiffEl.className = "status-value shortage";
+            alertBanner.textContent = `경고: 부스 공간 부족 - 목표 미달 (${Math.abs(diff)}개 부족)`;
+            alertBanner.className = "alert-banner";
+        }
+
+        // --- 푸드트럭 개수 계산 ---
+        let totalFt = 0;
+        if (ftToggle.checked) {
+            totalFt = Math.floor((lengths.west + ftGap) / (ftLen + ftGap));
+        }
+        ftCountDisplay.textContent = totalFt + "대";
+
+        // --- 캔버스 그리기 ---
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 1. 배경
+        ctx.fillStyle = '#1e1e24';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 2. 운동장 중앙 필드 그리기
+        ctx.beginPath();
+        ctx.moveTo(coords.nw.x, coords.nw.y);
+        ctx.lineTo(coords.ne.x, coords.ne.y);
+        ctx.lineTo(coords.se.x, coords.se.y);
+        ctx.lineTo(coords.sw.x, coords.sw.y);
+        ctx.closePath();
+        ctx.fillStyle = '#223226';
+        ctx.fill();
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 3. 필드 내부 데코레이션 라인
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(230, 110, 340, 160);
+        ctx.beginPath();
+        ctx.moveTo(400, 110);
+        ctx.lineTo(400, 270);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(400, 190, 40, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 4. 중앙 광장/스탠드 (푸드트럭 존) 영역
+        ctx.fillStyle = '#33333d';
+        ctx.fillRect(plazaCoords.x, plazaCoords.y, plazaCoords.w, plazaCoords.h);
+        
+        if (!ftToggle.checked) {
+            ctx.fillStyle = '#4b5563';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('중앙 광장/스탠드', plazaCoords.x + plazaCoords.w/2, 190);
+        }
+
+        // 5. 치수 텍스트 표시
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`북측 ${lengths.north}m`, (coords.nw.x + coords.ne.x)/2, coords.nw.y - 15);
+        ctx.fillText(`남측 ${lengths.south}m`, (coords.sw.x + coords.se.x)/2, coords.sw.y + 35);
+        
+        ctx.save();
+        ctx.translate(coords.nw.x - 15, (coords.nw.y + coords.sw.y)/2);
+        ctx.rotate(-Math.PI/2);
+        ctx.fillText(`서측 ${lengths.west}m`, 0, 0);
+        ctx.restore();
+
+        ctx.save();
+        ctx.translate(coords.ne.x + 20, (coords.ne.y + coords.se.y)/2);
+        ctx.rotate(Math.PI/2);
+        ctx.fillText(`동측 ${lengths.east}m`, 0, 0);
+        ctx.restore();
+        
+        // --- 6. 푸드트럭 그리기 ---
+        if (ftToggle.checked && totalFt > 0) {
+            const ftPxPerMeter = plazaCoords.h / lengths.west; 
+            const truckW_px = 3 * ftPxPerMeter; 
+            const truckH_px = ftLen * ftPxPerMeter;
+            const gap_px = ftGap * ftPxPerMeter;
+            
+            const startX = plazaCoords.x + (plazaCoords.w / 2) - (truckW_px / 2);
+            const totalBlockHeight = (totalFt * truckH_px) + ((totalFt - 1) * gap_px);
+            const startY = plazaCoords.y + (plazaCoords.h - totalBlockHeight) / 2;
+
+            ctx.fillStyle = '#d97706'; 
+            ctx.strokeStyle = '#fcd34d';
+            ctx.lineWidth = 1;
+
+            for (let i = 0; i < totalFt; i++) {
+                const ty = startY + i * (truckH_px + gap_px);
+                ctx.fillRect(startX, ty, truckW_px, truckH_px);
+                ctx.strokeRect(startX, ty, truckW_px, truckH_px);
+                
+                ctx.beginPath();
+                ctx.moveTo(startX, ty + truckH_px * 0.25);
+                ctx.lineTo(startX + truckW_px, ty + truckH_px * 0.25);
+                ctx.stroke();
+            }
+            
+            ctx.fillStyle = '#fcd34d';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`푸드트럭 ${totalFt}대`, plazaCoords.x + plazaCoords.w/2, plazaCoords.y - 10);
+        }
+
+        // --- 7. 부스(텐트) 그리기 함수 ---
+        function drawTentsOnLine(p1, p2, count, side, isDouble = false, color = '#4f46e5', specialOffset = null) {
+            if (count === 0) return;
+            
+            const totalCount = isDouble ? count / 2 : count;
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const segmentLength = Math.sqrt(dx*dx + dy*dy);
+            
+            let sideLengthMeter = lengths[side];
+            const pxPerMeter = segmentLength / sideLengthMeter;
+            
+            const tentW_px = w * pxPerMeter;
+            const tentD_px = d * pxPerMeter;
+
+            const angle = Math.atan2(dy, dx);
+
+            for (let row = 0; row < (isDouble ? 2 : 1); row++) {
+                for (let i = 0; i < totalCount; i++) {
+                    const progress = (i * tentW_px);
+                    if (progress + tentW_px > segmentLength) break;
+
+                    const tx = p1.x + Math.cos(angle) * (progress + tentW_px/2);
+                    const ty = p1.y + Math.sin(angle) * (progress + tentW_px/2);
+
+                    ctx.save();
+                    ctx.translate(tx, ty);
+                    ctx.rotate(angle);
+
+                    // 안쪽 정렬을 위한 오프셋
+                    let offsetSign = 1;
+                    if (side === 'north' || side === 'west') offsetSign = 1;
+                    if (side === 'south' || side === 'east') offsetSign = -1;
+
+                    let rowOffset = row * (tentD_px + 2) * offsetSign;
+                    
+                    // 스페셜 오프셋 적용 (앞쪽으로 추가 이동)
+                    if (specialOffset) {
+                         rowOffset += specialOffset * (tentD_px + 2) * offsetSign;
+                    }
+
+                    ctx.fillStyle = color;
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1;
+                    
+                    const drawX = -tentW_px/2 + 1;
+                    const drawY = (offsetSign === 1 ? 2 : -tentD_px - 2) + rowOffset;
+                    
+                    ctx.fillRect(drawX, drawY, tentW_px - 2, tentD_px);
+                    ctx.strokeRect(drawX, drawY, tentW_px - 2, tentD_px);
+
+                    // X자 입체감
+                    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                    ctx.beginPath();
+                    ctx.moveTo(drawX, drawY);
+                    ctx.lineTo(drawX + tentW_px - 2, drawY + tentD_px);
+                    ctx.moveTo(drawX + tentW_px - 2, drawY);
+                    ctx.lineTo(drawX, drawY + tentD_px);
+                    ctx.stroke();
+
+                    ctx.restore();
+                }
+            }
+        }
+
+        // 각 구역별 부스 드로잉
+        if (northToggle.checked) drawTentsOnLine(coords.nw, coords.ne, northCount, 'north');
+        if (eastToggle.checked) drawTentsOnLine(coords.ne, {x: coords.se.x, y: coords.se.y - (airbounceToggle.checked ? 60 : 0)}, eastCount, 'east');
+        
+        let southEnd = coords.se;
+        if (airbounceToggle.checked) {
+             southEnd = {x: coords.se.x - 50, y: coords.se.y};
+        }
+        if (southToggle.checked) drawTentsOnLine(coords.sw, southEnd, southCount, 'south', southDoubleToggle.checked);
+        
+        if (westToggle.checked) drawTentsOnLine(coords.nw, coords.sw, westCount, 'west');
+        
+        // --- 8. 특별 구역 드로잉 ---
+        
+        // 북측 앞줄 텐트 4개 (가운데 정렬 비슷하게)
+        if (northFrontToggle.checked) {
+            const centerProgress = Math.sqrt(Math.pow(coords.ne.x - coords.nw.x, 2) + Math.pow(coords.ne.y - coords.nw.y, 2)) / 2;
+            const pxPerMeter = Math.sqrt(Math.pow(coords.ne.x - coords.nw.x, 2) + Math.pow(coords.ne.y - coords.nw.y, 2)) / lengths.north;
+            const tentW_px = w * pxPerMeter;
+            const startProgress = centerProgress - (2 * tentW_px);
+            
+            const startPoint = {
+                 x: coords.nw.x + Math.cos(0) * startProgress,
+                 y: coords.nw.y
+            };
+            const endPoint = {
+                 x: coords.nw.x + Math.cos(0) * (startProgress + 4 * tentW_px + 10),
+                 y: coords.nw.y
+            };
+            
+            drawTentsOnLine(startPoint, endPoint, 4, 'north', false, '#10b981', 1);
+        }
+        
+        // 남측 좌측 텐트 3개 (서측 벽쪽에 가깝게)
+        if (southLeftToggle.checked) {
+            const startPoint = coords.sw;
+            const endPoint = {
+                 x: coords.se.x,
+                 y: coords.se.y
+            };
+            // 남측 복열 배치 상태에 따라 오프셋 결정
+            const offset = southDoubleToggle.checked ? 2 : 1;
+            drawTentsOnLine(startPoint, endPoint, 3, 'south', false, '#10b981', offset);
+        }
+        
+        // 에어바운스 그리기 (5시 방향 - 남동쪽 모서리)
+        if (airbounceToggle.checked) {
+            const abX = coords.se.x - 45;
+            const abY = coords.se.y - 45;
+            const abSize = 40;
+            
+            ctx.fillStyle = '#ec4899'; // 핑크색 계열
+            ctx.fillRect(abX, abY, abSize, abSize);
+            
+            // 간단한 에어바운스 성벽 데코레이션
+            ctx.fillStyle = '#fce7f3';
+            ctx.fillRect(abX + 5, abY + 5, abSize - 10, abSize - 10);
+            
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(abX, abY, 10, 10);
+            ctx.fillRect(abX + abSize - 10, abY, 10, 10);
+            ctx.fillRect(abX, abY + abSize - 10, 10, 10);
+            ctx.fillRect(abX + abSize - 10, abY + abSize - 10, 10, 10);
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('에어', abX + abSize/2, abY + abSize/2 - 2);
+            ctx.fillText('바운스', abX + abSize/2, abY + abSize/2 + 8);
+        }
+    }
+
+    // 이벤트 리스너 등록
+    const elements = [
+        tentWidthInput, tentDepthInput, targetCountInput, 
+        northToggle, eastToggle, southToggle, westToggle, southDoubleToggle,
+        ftToggle, ftLengthInput,
+        northFrontToggle, southLeftToggle, airbounceToggle
+    ];
+    
+    elements.forEach(el => {
+        el.addEventListener('input', calculateAndDraw);
+        el.addEventListener('change', calculateAndDraw);
+    });
+
+    // 남측 배치가 꺼지면 복열 배치 옵션 비활성화 기능 연동
+    southToggle.addEventListener('change', function() {
+        southDoubleToggle.disabled = !this.checked;
+        if(!this.checked) southDoubleToggle.checked = false;
+    });
+
+    // 최초 로드 실행
+    calculateAndDraw();
+</script>
+
+</body>
+</html>
